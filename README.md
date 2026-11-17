@@ -7,12 +7,15 @@ Ask questions about a CSV in Spanish or English. The file never leaves the brows
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node.js 24.
 
 ```bash
+# From the repo root, once:
 uv tool install pre-commit && pre-commit install   # git hooks: gitleaks, ruff, eslint
 
-cd apps/api && uv sync && uv run pytest            # API
+# API (from apps/api)
+uv sync && uv run pytest
 uv run uvicorn askdata_api.main:app --reload       # http://localhost:8000/healthz
 
-cd apps/web && npm ci && npm test                  # web
+# Web (from apps/web)
+npm ci && npm test
 npm run dev                                        # http://localhost:3000
 ```
 

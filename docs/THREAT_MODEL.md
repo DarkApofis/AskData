@@ -39,7 +39,7 @@
 | A6 | Quota exhaustion of LLM free tier | Quota | High | High | Rate limiting, per-request token caps, provider fallback, cached errors with stable codes | Planned |
 | A7 | XSS via CSV cell values, column names or LLM text rendered in the UI | Users' browsers | Medium | High | React escaping only (no `dangerouslySetInnerHTML`); strict CSP; chart labels as text | Planned |
 | A8 | Secret leakage (keys in git, client bundle, logs or error messages) | Keys | Medium | High | `.env*` git-ignored; gitleaks pre-commit + CI; keys only server-side; no `NEXT_PUBLIC_` secrets; generic error messages | **Partially in place** (gitignore, gitleaks) |
-| A9 | Supply-chain compromise (dependency or Action) | All | Low | High | Lockfiles; `pip-audit` and `npm audit --audit-level=high` in CI; Actions pinned to SHAs; `contents: read` | **In place** |
+| A9 | Supply-chain compromise (dependency or Action) | All | Low | High | Lockfiles; `pip-audit` and `npm audit --audit-level=high` in CI; Actions pinned to SHAs; `contents: read` | **Partially in place** (no automated updates yet; pre-commit revs and uv version not pinned) |
 | A10 | Privacy breach: raw CSV rows sent to the backend or LLM | User CSV | Medium | High | Client sends only schema + ≤5 sanitized rows; server rejects >5 rows | Planned |
 
 ## Open risks

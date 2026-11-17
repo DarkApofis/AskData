@@ -42,7 +42,10 @@ jobs:
       - name: Audit locked dependencies (fails on any known vulnerability)
         run: |
           uv export --frozen --no-hashes --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
-          uv run pip-audit --strict --no-deps -r "$RUNNER_TEMP/requirements.txt"
+          # Strip environment markers: pip-audit silently drops lines whose marker
+          # does not match the runner (e.g. Windows-only deps), even with --strict.
+          sed -E 's/ *;.*$//' "$RUNNER_TEMP/requirements.txt" > "$RUNNER_TEMP/requirements-all.txt"
+          uv run pip-audit --strict --no-deps -r "$RUNNER_TEMP/requirements-all.txt"
 
   web:
     name: web (lint, typecheck, test, audit)
