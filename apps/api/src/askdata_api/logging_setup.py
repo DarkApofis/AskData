@@ -16,6 +16,11 @@ from datetime import UTC, datetime
 
 from askdata_api.request_context import request_id_var
 
+# Loggers whose messages are string literals we can vouch for. Anything else (LLM
+# SDKs, asyncio, httpx...) may log dynamic text or exception objects as the message.
+TRUSTED_LOGGERS = frozenset({"askdata_api", "uvicorn"})
+REDACTED_EVENT = "redacted"
+
 ALLOWED_LOG_FIELDS = frozenset(
     {"method", "path", "status", "latency_ms", "code", "provider", "state", "error_type", "frames"}
 )
@@ -32,6 +37,13 @@ def exception_fields(exc: BaseException) -> dict[str, object]:
     }
 
 
+def _event(record: logging.LogRecord) -> str:
+    root_name = record.name.split(".", 1)[0]
+    if root_name in TRUSTED_LOGGERS and isinstance(record.msg, str):
+        return record.msg
+    return REDACTED_EVENT
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         data: dict[str, object] = {
@@ -40,7 +52,7 @@ class JsonFormatter(logging.Formatter):
             .replace("+00:00", "Z"),
             "level": record.levelname,
             "logger": record.name,
-            "event": str(record.msg),
+            "event": _event(record),
             "request_id": request_id_var.get(),
         }
         for key in ALLOWED_LOG_FIELDS:

@@ -9,7 +9,7 @@ from askdata_api.request_context import request_id_var
 
 
 def _record(msg: str, *args: object, **extra: object) -> logging.LogRecord:
-    record = logging.LogRecord("askdata.test", logging.INFO, __file__, 1, msg, args, None)
+    record = logging.LogRecord("askdata_api.test", logging.INFO, __file__, 1, msg, args, None)
     record.__dict__.update(extra)
     return record
 
@@ -24,7 +24,7 @@ def test_formatter_emits_json_with_request_id() -> None:
     data = json.loads(line)
     assert data["event"] == "request"
     assert data["level"] == "INFO"
-    assert data["logger"] == "askdata.test"
+    assert data["logger"] == "askdata_api.test"
     assert data["request_id"] == "req-12345678"
     assert data["status"] == 200
     assert data["latency_ms"] == 3.2
@@ -58,7 +58,7 @@ def test_formatter_omits_exception_message() -> None:
         raise ValueError("SECRET_SQL SELECT 1")
     except ValueError:
         record = logging.LogRecord(
-            "askdata.test", logging.ERROR, __file__, 1, "unhandled_error", None, sys.exc_info()
+            "askdata_api.test", logging.ERROR, __file__, 1, "unhandled_error", None, sys.exc_info()
         )
 
     line = JsonFormatter().format(record)
@@ -97,3 +97,40 @@ def test_configure_logging_installs_json_on_root_and_silences_access() -> None:
     assert logging.getLogger("uvicorn.access").disabled
     assert not logging.getLogger("uvicorn.error").handlers
     assert logging.getLogger("uvicorn.error").propagate
+
+
+def test_exception_object_as_message_is_not_emitted() -> None:
+    # Libraries (LLM SDKs, asyncio) call logger.error(exc): msg is then the exception.
+    record = logging.LogRecord(
+        "groq", logging.ERROR, __file__, 1, RuntimeError("quota for key AIzaSECRET"), None, None
+    )
+
+    line = JsonFormatter().format(record)
+
+    assert "AIzaSECRET" not in line
+    assert json.loads(line)["event"] == "redacted"
+
+
+def test_dynamic_message_from_third_party_logger_is_not_emitted() -> None:
+    record = logging.LogRecord(
+        "asyncio",
+        logging.ERROR,
+        __file__,
+        1,
+        "Task exception was never retrieved exception=RuntimeError('SELECT secret')",
+        None,
+        None,
+    )
+
+    line = JsonFormatter().format(record)
+
+    assert "SELECT secret" not in line
+
+
+@pytest.mark.parametrize("name", ["askdata_api.access", "uvicorn.error"])
+def test_literal_messages_from_trusted_loggers_are_kept(name: str) -> None:
+    record = logging.LogRecord(
+        name, logging.INFO, __file__, 1, "Application startup complete.", None, None
+    )
+
+    assert json.loads(JsonFormatter().format(record))["event"] == "Application startup complete."

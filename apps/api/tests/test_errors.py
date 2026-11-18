@@ -97,3 +97,10 @@ def test_every_code_has_status_and_message() -> None:
 
     assert {code.value: code.status for code in ErrorCode} == expected
     assert all(code.message.endswith(".") for code in ErrorCode)
+
+
+async def test_trailing_slash_is_404_envelope_not_redirect(client: httpx.AsyncClient) -> None:
+    response = await client.get("/healthz/", headers={"Host": "evil.example"})
+
+    _assert_envelope(response, 404, "not_found")
+    assert "location" not in response.headers

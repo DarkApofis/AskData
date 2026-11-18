@@ -17,7 +17,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """Build the app. Without explicit settings they are read from the environment,
     which raises SettingsError on a missing or invalid variable (fail fast)."""
     settings = settings if settings is not None else load_settings()
-    app = FastAPI(title="AskData API")
+    # redirect_slashes=False: a 307 would bypass the error envelope and echo the Host header.
+    app = FastAPI(title="AskData API", redirect_slashes=False)
     register_error_handlers(app)
     app.include_router(health.router)
 
