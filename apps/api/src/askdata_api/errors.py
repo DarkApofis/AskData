@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from askdata_api.request_context import request_id_var
+from askdata_api.request_context import error_code_slot_var, request_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,9 @@ class ProviderError(AppError):
 
 def error_response(code: ErrorCode, headers: Mapping[str, str] | None = None) -> JSONResponse:
     """Build the one and only error body shape."""
+    slot = error_code_slot_var.get()
+    if slot is not None:
+        slot.code = code.value
     body = ErrorResponse(code=code, message=code.message, request_id=request_id_var.get())
     return JSONResponse(body.model_dump(mode="json"), status_code=code.status, headers=headers)
 

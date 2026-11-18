@@ -21,6 +21,17 @@ ALLOWED_LOG_FIELDS = frozenset(
 )
 
 
+def exception_fields(exc: BaseException) -> dict[str, object]:
+    """Type and frame locations of an exception; never its message or locals."""
+    return {
+        "error_type": type(exc).__name__,
+        "frames": [
+            f"{os.path.basename(frame.filename)}:{frame.lineno}:{frame.name}"
+            for frame in traceback.extract_tb(exc.__traceback__)
+        ],
+    }
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         data: dict[str, object] = {
@@ -36,12 +47,7 @@ class JsonFormatter(logging.Formatter):
             if key in record.__dict__:
                 data[key] = record.__dict__[key]
         if record.exc_info and record.exc_info[1] is not None:
-            exc = record.exc_info[1]
-            data["error_type"] = type(exc).__name__
-            data["frames"] = [
-                f"{os.path.basename(frame.filename)}:{frame.lineno}:{frame.name}"
-                for frame in traceback.extract_tb(exc.__traceback__)
-            ]
+            data.update(exception_fields(record.exc_info[1]))
         return json.dumps(data, ensure_ascii=False, default=str)
 
 
