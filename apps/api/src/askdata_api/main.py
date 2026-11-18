@@ -1,14 +1,9 @@
-"""ASGI entry point. Run with: uv run uvicorn askdata_api.main:app"""
+"""ASGI entry point: `uv run --env-file .env uvicorn askdata_api.main:app`.
 
-from fastapi import FastAPI
+Building the app here, at import time, makes a missing or invalid environment
+variable abort the server before it accepts connections.
+"""
 
-from askdata_api import health
-
-
-def create_app() -> FastAPI:
-    app = FastAPI(title="AskData API")
-    app.include_router(health.router)
-    return app
-
+from askdata_api.app import create_app
 
 app = create_app()

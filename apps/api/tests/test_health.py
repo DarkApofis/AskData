@@ -1,16 +1,4 @@
-from collections.abc import AsyncIterator
-
 import httpx
-import pytest
-
-from askdata_api.main import create_app
-
-
-@pytest.fixture
-async def client() -> AsyncIterator[httpx.AsyncClient]:
-    transport = httpx.ASGITransport(app=create_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
 
 
 async def test_healthz_returns_ok(client: httpx.AsyncClient) -> None:
