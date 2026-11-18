@@ -11,3 +11,6 @@ Items noticed while working on other tasks. Not scheduled.
 - Widen the eslint pre-commit `files` pattern to `.mts`/`.cts` and to `package.json`/`tsconfig.json`/`eslint.config.mjs`.
 - CI concurrency: cancel in-progress runs only for pull requests, not for `main`.
 - CI hardening: `npm ci --ignore-scripts`, `NEXT_TELEMETRY_DISABLED=1`, `UV_LOCKED=1`, pytest `--strict-config`.
+- Rate limiter (per IP) raising `RateLimitedError`; the error type, 429 mapping and `Retry-After` exposure already exist (B1).
+- 422 responses: decide whether to return field locations (never input values) so the client can highlight the field.
+- Interpolate `%` args for uvicorn's own startup log lines only (they show templates such as `[%d]` today).
