@@ -5,5 +5,9 @@ variable abort the server before it accepts connections.
 """
 
 from askdata_api.app import create_app
+from askdata_api.logging_setup import configure_logging
+from askdata_api.settings import load_settings
 
-app = create_app()
+settings = load_settings()
+configure_logging(settings.log_level)
+app = create_app(settings)
