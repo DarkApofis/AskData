@@ -19,3 +19,6 @@ Items noticed while working on other tasks. Not scheduled.
 - Reject or normalise origins with uppercase letters or default ports (`:443`), which can never match a browser `Origin`.
 - Restore `Vary: Origin` on responses to disallowed origins in `StrictCORSMiddleware.send`.
 - Replace `# type: ignore[type-arg]` on `_JsonHandler` with `logging.StreamHandler[TextIO]`.
+- Groq adapter + provider fallback (reuse `llm/retry.py`); consider an overall `deadline` parameter so retries leave time for the fallback.
+- Usage metadata (tokens, latency) for `stream_text()` if a caller needs it.
+- Run `uv run pytest -m live` once with a real Gemini key to confirm the header auth, `responseJsonSchema` and SSE shape (unverified by the docs).
