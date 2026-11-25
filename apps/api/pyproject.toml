@@ -5,6 +5,7 @@ description = "AskData backend: turns a question plus a CSV schema into validate
 requires-python = "==3.12.*"
 dependencies = [
     "fastapi>=0.115",
+    "pydantic-settings>=2.6",
     "uvicorn>=0.32",
 ]
 
