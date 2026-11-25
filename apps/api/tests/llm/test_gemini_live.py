@@ -3,7 +3,9 @@
     GEMINI_API_KEY=... uv run pytest -m live
 
 Settles what the docs do not confirm: the x-goog-api-key header on generateContent,
-the accepted responseJsonSchema, and the SSE event shape.
+whether responseJsonSchema accepts SqlAnswer's schema, the SSE event shape and that
+streams end with a finishReason. It does not trigger a 429, so where Gemini puts the
+retry delay stays unverified (parse_retry_after reads both the header and RetryInfo).
 """
 
 import os

@@ -66,3 +66,18 @@ def test_header_wins_over_body() -> None:
 )
 def test_retry_after_garbage_is_none(response: httpx.Response) -> None:
     assert parse_retry_after(response) is None
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (httpx.Response(429, headers={"Retry-After": "9" * 5000}), None),
+        (httpx.Response(429, headers={"Retry-After": "99999"}), 3600),
+        (httpx.Response(429, content=_retry_info("9" * 400 + "s")), None),
+        (httpx.Response(429, content=_retry_info("86400s")), 3600),
+    ],
+)
+def test_absurd_retry_after_is_clamped_or_none(
+    response: httpx.Response, expected: int | None
+) -> None:
+    assert parse_retry_after(response) == expected

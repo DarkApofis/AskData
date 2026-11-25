@@ -100,6 +100,9 @@ class GeminiProvider:
                 event = _json_or(line.removeprefix("data:").strip().encode(), _INVALID)
                 if not isinstance(event, dict):
                     raise self._output_error("invalid_json")
+                if "error" in event:  # in-band error event: the stream failed upstream
+                    logger.warning("provider_stream_error", extra={"provider": self.name})
+                    raise ProviderError(self.name)
                 if _dict(event.get("promptFeedback")).get("blockReason"):
                     raise self._output_error("blocked")
                 candidates = event.get("candidates")
@@ -116,6 +119,8 @@ class GeminiProvider:
                 raise self._output_error("blocked")
             if not yielded:
                 raise self._output_error("empty")
+            if finish is None:  # text but no final finishReason: the stream was cut
+                raise self._output_error("truncated")
         finally:
             await response.aclose()
 
@@ -163,9 +168,8 @@ class GeminiProvider:
                 raise ProviderError(self.name)
             if response.status_code == 200:
                 return response
-            if stream:
-                await response.aread()
-                await response.aclose()
+            if stream and not await self._drain(response):
+                raise ProviderError(self.name)
 
             status = response.status_code
             logger.warning("provider_http_error", extra={"provider": self.name, "status": status})
@@ -179,6 +183,20 @@ class GeminiProvider:
                 raise ProviderError(self.name)
             await self._sleep(max(backoff_delay(attempt), retry_after or 0))
         raise ProviderError(self.name)  # unreachable: the loop always returns or raises
+
+    async def _drain(self, response: httpx.Response) -> bool:
+        """Read and close a streamed error response. False if the read failed."""
+        try:
+            await response.aread()
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "provider_transport_error",
+                extra={"provider": self.name, "error_type": type(exc).__name__},
+            )
+            return False
+        finally:
+            await response.aclose()
+        return True
 
     async def _send_once(self, request: httpx.Request, *, stream: bool) -> httpx.Response | None:
         """One attempt. Transport errors and timeouts are not retried."""
@@ -221,7 +239,7 @@ _INVALID = object()
 def _json_or(raw: bytes, default: object) -> object:
     try:
         return json.loads(raw)
-    except ValueError:
+    except (ValueError, RecursionError):  # RecursionError: absurdly nested JSON
         return default
 
 

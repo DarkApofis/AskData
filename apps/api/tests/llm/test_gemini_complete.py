@@ -229,3 +229,10 @@ async def test_per_attempt_timeout_is_sent() -> None:
         "write": 3.0,
         "pool": 3.0,
     }
+
+
+async def test_deeply_nested_json_is_invalid_json() -> None:
+    with pytest.raises(ProviderOutputError) as exc:
+        await _complete(Script([httpx.Response(200, content=b"[" * 100_000)]))
+
+    assert exc.value.reason == "invalid_json"

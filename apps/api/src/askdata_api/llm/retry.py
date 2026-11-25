@@ -9,6 +9,8 @@ import httpx
 
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
+# Upper bound for a provider-supplied wait; it is also passed on to our client.
+MAX_RETRY_AFTER_SECONDS = 3600
 _RETRY_INFO_TYPE = "type.googleapis.com/google.rpc.RetryInfo"
 _DURATION = re.compile(r"(\d+(?:\.\d+)?)s")
 
@@ -29,7 +31,7 @@ def parse_retry_after(response: httpx.Response) -> int | None:
     `RetryInfo.retryDelay` ("30s") in the error body. None when absent or malformed."""
     header = response.headers.get("retry-after", "").strip()
     if header.isascii() and header.isdigit():
-        return int(header)
+        return _clamp(_int_or_none(header))
     try:
         details = response.json()["error"]["details"]
     except (ValueError, KeyError, TypeError):
@@ -40,5 +42,17 @@ def parse_retry_after(response: httpx.Response) -> int | None:
         if isinstance(detail, dict) and detail.get("@type") == _RETRY_INFO_TYPE:
             match = _DURATION.fullmatch(str(detail.get("retryDelay", "")))
             if match:
-                return max(1, math.ceil(float(match.group(1))))
+                seconds = float(match.group(1))
+                return _clamp(max(1, math.ceil(seconds)) if math.isfinite(seconds) else None)
     return None
+
+
+def _int_or_none(digits: str) -> int | None:
+    try:
+        return int(digits)
+    except ValueError:  # beyond Python's int-from-str digit limit
+        return None
+
+
+def _clamp(seconds: int | None) -> int | None:
+    return None if seconds is None else min(seconds, MAX_RETRY_AFTER_SECONDS)

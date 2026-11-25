@@ -8,6 +8,7 @@ from tests.llm.fakes import (
     MODEL,
     QUESTIONS,
     STREAM_FAILURES,
+    FailingStream,
     Script,
     body_of,
     delta,
@@ -137,3 +138,32 @@ async def test_stream_4xx_not_retried() -> None:
         await _collect(script)
 
     assert len(script.requests) == 1
+
+
+async def test_stream_error_body_read_failure_is_provider_error_and_closes() -> None:
+    body = FailingStream([])
+    script = Script([httpx.Response(503, stream=body)])
+
+    with pytest.raises(ProviderError) as exc:
+        await _collect(script)
+
+    assert type(exc.value) is ProviderError
+    assert body.closed
+
+
+async def test_stream_in_band_error_event_is_provider_error() -> None:
+    script = Script([sse(delta("Hola"), {"error": {"code": 503, "message": "overloaded"}})])
+
+    with pytest.raises(ProviderError) as exc:
+        await _collect(script, "es")
+
+    assert type(exc.value) is ProviderError
+
+
+async def test_stream_text_without_final_finish_reason_is_truncated() -> None:
+    script = Script([sse(delta("Hola"), delta(" mundo"))])
+
+    with pytest.raises(ProviderOutputError) as exc:
+        await _collect(script, "es")
+
+    assert exc.value.reason == "truncated"

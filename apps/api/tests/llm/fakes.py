@@ -159,6 +159,10 @@ class FailingStream(httpx.AsyncByteStream):
 
     def __init__(self, chunks: list[bytes]) -> None:
         self._chunks = chunks
+        self.closed = False
+
+    async def aclose(self) -> None:
+        self.closed = True
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         for chunk in self._chunks:
@@ -190,5 +194,9 @@ STREAM_FAILURES: dict[str, ScriptFactory] = {
     "429_long": lambda: [httpx.Response(429, headers={"Retry-After": "30"})],
     "401": lambda: [
         httpx.Response(401, json={"error": {"message": f"API key {FAKE_KEY} invalid"}})
+    ],
+    "error_body_read_fails": lambda: [httpx.Response(503, stream=FailingStream([]))],
+    "in_band_error_event": lambda: [
+        sse(delta("Hola"), {"error": {"code": 503, "message": f"overloaded {FAKE_KEY}"}})
     ],
 }
