@@ -33,6 +33,7 @@ def _isolate_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "MAX_BODY_BYTES",
         "REQUEST_TIMEOUT_SECONDS",
         "LOG_LEVEL",
+        "GEMINI_MODEL",
     ):
         monkeypatch.delenv(name, raising=False)
 

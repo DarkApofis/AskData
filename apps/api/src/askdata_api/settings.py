@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     max_body_bytes: int = Field(default=65_536, ge=1, le=1_048_576)
     request_timeout_seconds: float = Field(default=20, gt=0, le=60)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    # Interpolated into the provider URL path, hence the strict pattern.
+    gemini_model: str = Field(
+        default="gemini-3.5-flash-lite", pattern=r"^[a-z0-9][a-z0-9.-]{0,63}$"
+    )
 
     @field_validator("gemini_api_key", "groq_api_key")
     @classmethod

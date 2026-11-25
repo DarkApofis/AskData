@@ -113,8 +113,12 @@ async def _handle_app_error(_: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, AppError):  # unreachable by registration; fail closed
         return error_response(ErrorCode.INTERNAL_ERROR)
     extra: dict[str, object] = {"code": exc.code.value}
-    if isinstance(exc, ProviderError):
-        extra["provider"] = exc.provider
+    provider = getattr(exc, "provider", None)
+    if provider is not None:
+        extra["provider"] = provider
+    reason = getattr(exc, "reason", None)
+    if reason is not None:
+        extra["state"] = reason
     logger.warning("app_error", extra=extra)
     return error_response(exc.code, exc.headers())
 
