@@ -88,8 +88,54 @@ class GeminiProvider:
         )
 
     async def stream_text(self, *, system: str, user: str) -> AsyncIterator[str]:
-        raise NotImplementedError
-        yield ""  # pragma: no cover
+        # Retries happen only inside _send, i.e. before the first delta is yielded.
+        response = await self._send("streamGenerateContent", self._body(system, user), stream=True)
+        try:
+            lines = response.aiter_lines()
+            finish: object = None
+            yielded = False
+            while (line := await self._next_line(lines)) is not None:
+                if not line.startswith("data:"):
+                    continue  # blank separators, ": comments", "event:" / "id:" fields
+                event = _json_or(line.removeprefix("data:").strip().encode(), _INVALID)
+                if not isinstance(event, dict):
+                    raise self._output_error("invalid_json")
+                if _dict(event.get("promptFeedback")).get("blockReason"):
+                    raise self._output_error("blocked")
+                candidates = event.get("candidates")
+                candidate = (
+                    _dict(candidates[0]) if isinstance(candidates, list) and candidates else {}
+                )
+                finish = candidate.get("finishReason") or finish
+                if text := _part_text(candidate):
+                    yielded = True
+                    yield text
+            if finish == "MAX_TOKENS":
+                raise self._output_error("truncated")
+            if finish not in (None, "STOP"):
+                raise self._output_error("blocked")
+            if not yielded:
+                raise self._output_error("empty")
+        finally:
+            await response.aclose()
+
+    async def _next_line(self, lines: AsyncIterator[str]) -> str | None:
+        """Next SSE line, None at the end; a dropped stream is a ProviderError."""
+        line: str | None = None
+        dropped = False
+        try:
+            line = await anext(lines)
+        except StopAsyncIteration:
+            pass
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "provider_transport_error",
+                extra={"provider": self.name, "error_type": type(exc).__name__},
+            )
+            dropped = True
+        if dropped:
+            raise ProviderError(self.name)
+        return line
 
     def _body(self, system: str, user: str) -> dict[str, Any]:
         return {

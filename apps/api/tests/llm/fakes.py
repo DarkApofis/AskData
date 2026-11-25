@@ -1,7 +1,7 @@
 """Scripted httpx transport and Gemini response builders. No network."""
 
 import json
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -151,4 +151,44 @@ COMPLETE_FAILURES: dict[str, ScriptFactory] = {
     ],
     "timeout": lambda: [httpx.ReadTimeout("timed out")],
     "connect_error": lambda: [httpx.ConnectError("refused")],
+}
+
+
+class FailingStream(httpx.AsyncByteStream):
+    """Yields `chunks`, then fails like a dropped connection."""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for chunk in self._chunks:
+            yield chunk
+        raise httpx.ReadError("connection dropped")
+
+
+def delta(text: str, finish: str | None = None) -> dict[str, Any]:
+    return gemini_json([text], finish=finish, usage=None)
+
+
+_HOLA_EVENT = b'data: {"candidates": [{"content": {"parts": [{"text": "Hola"}]}}]}\n\n'
+
+# Every failure mode of stream_text(), reused by the key-leak tests.
+STREAM_FAILURES: dict[str, ScriptFactory] = {
+    "bad_json_after_delta": lambda: [
+        httpx.Response(200, content=_HOLA_EVENT + b"data: {not json\n\n")
+    ],
+    "transport_error": lambda: [
+        httpx.Response(
+            200,
+            stream=FailingStream(
+                [b'data: {"candidates": [{"content": {"parts": [{"text": "Hi"}]}}]}\n\n']
+            ),
+        )
+    ],
+    "blocked": lambda: [sse(gemini_json(block_reason="SAFETY", usage=None))],
+    "truncated": lambda: [sse(delta("Hola"), delta(" mundo", finish="MAX_TOKENS"))],
+    "429_long": lambda: [httpx.Response(429, headers={"Retry-After": "30"})],
+    "401": lambda: [
+        httpx.Response(401, json={"error": {"message": f"API key {FAKE_KEY} invalid"}})
+    ],
 }
